@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Interactive Scapula Anatomy</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, sans-serif; background:#10151d; color:#eef3f8; }
+  .wrap { display:grid; grid-template-columns:minmax(0,1fr) 310px; min-height:100vh; }
+  #view { min-height:650px; position:relative; }
+  canvas { display:block; width:100%; height:100%; touch-action:none; }
+  aside { padding:18px; background:#18212c; border-left:1px solid #33404e; overflow:auto; }
+  h1 { font-size:20px; margin:0 0 6px; } .sub { color:#b6c2cf; font-size:13px; line-height:1.45; margin-bottom:16px; }
+  button { border:1px solid #526274; background:#263545; color:#f4f7fb; padding:9px 11px; border-radius:9px; cursor:pointer; margin:3px 3px 8px 0; }
+  button.active { background:#38648a; border-color:#78b8ed; }
+  .group { margin:14px 0; } .group h2 { font-size:14px; margin:0 0 8px; color:#d4e4f2; }
+  .muscle { display:flex; align-items:center; gap:8px; padding:6px 0; font-size:13px; }
+  .muscle input { accent-color:#80b9e8; } .swatch { width:12px;height:12px;border-radius:3px;display:inline-block;flex:none; }
+  #info { background:#222f3d; border-radius:10px; padding:11px; font-size:13px; line-height:1.5; min-height:68px; margin-top:12px; }
+  .hint { color:#aebdca; font-size:12px; line-height:1.5; margin-top:12px; }
+  @media(max-width:760px){ .wrap{grid-template-columns:1fr} #view{height:58vh;min-height:420px} aside{border-left:0;border-top:1px solid #33404e} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <main id="view" aria-label="Interactive 3D scapula"></main>
+  <aside>
+    <h1>Scapula · 3D anatomy</h1>
+    <div class="sub">Rotate by dragging, zoom with pinch or scroll, and select muscle attachments to highlight them. This is a teaching model, not a clinical atlas.</div>
+    <div>
+      <button id="post" class="active">Posterior view</button>
+      <button id="ant">Anterior view</button>
+      <button id="reset">Reset</button>
+    </div>
+    <div class="group">
+      <h2>Muscle attachments</h2>
+      <div id="muscles"></div>
+    </div>
+    <div id="info">Choose a muscle to highlight its scapular attachment. Switch views to inspect the opposite surface.</div>
+    <div class="hint"><b>Study tip:</b> Posterior surface = supraspinous and infraspinous fossae. Costal (anterior) surface = subscapular fossa. The scapular spine separates the two posterior fossae.</div>
+  </aside>
+</div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+
+const host=document.getElementById('view');
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x10151d);
+const camera=new THREE.PerspectiveCamera(38,1,0.1,100); camera.position.set(0,0,11);
+const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); host.appendChild(renderer.domElement);
+const controls=new OrbitControls(camera,renderer.domElement); controls.enableDamping=true; controls.target.set(0,0,0);
+scene.add(new THREE.HemisphereLight(0xddeeff,0x4a3827,2.1));
+const key=new THREE.DirectionalLight(0xffffff,2.5); key.position.set(4,6,8); scene.add(key);
+const fill=new THREE.DirectionalLight(0x8ab6dc,1.1); fill.position.set(-5,1,-5); scene.add(fill);
+
+const boneMat=new THREE.MeshStandardMaterial({color:0xd7bd91,roughness:.78,metalness:0});
+const edgeMat=new THREE.MeshStandardMaterial({color:0xb9986d,roughness:.8});
+const boneShape=new THREE.Shape();
+boneShape.moveTo(-2.35,2.05); boneShape.lineTo(.95,2.08); boneShape.lineTo(1.55,1.58);
+boneShape.lineTo(1.48,-1.45); boneShape.lineTo(.05,-2.62); boneShape.lineTo(-2.22,-.45); boneShape.closePath();
+const boneGeo=new THREE.ExtrudeGeometry(boneShape,{depth:.32,bevelEnabled:true,bevelSegments:3,steps:1,bevelSize:.10,bevelThickness:.09});
+boneGeo.translate(0,0,-.16);
+const scapula=new THREE.Mesh(boneGeo,boneMat); scene.add(scapula);
+
+function rod(a,b,r,mat){const d=new THREE.Vector3(...b).sub(new THREE.Vector3(...a));const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,d.length(),12),mat);m.position.copy(new THREE.Vector3(...a).add(new THREE.Vector3(...b)).multiplyScalar(.5));m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());scene.add(m);return m;}
+function sphere(x,y,z,sx,sy,sz,mat){const m=new THREE.Mesh(new THREE.SphereGeometry(1,24,16),mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);scene.add(m);return m;}
+const ridge=new THREE.MeshStandardMaterial({color:0xc5a77c,roughness:.7});
+rod([-2.12,.83,.22],[1.37,1.18,.30],.16,ridge); // spine
+rod([.88,1.14,.27],[2.12,1.68,.28],.23,ridge); // acromion
+rod([.72,1.55,.22],[1.28,2.18,.18],.17,ridge); // coracoid
+sphere(1.65,1.15,.12,.34,.46,.20,boneMat); // glenoid region
+sphere(1.75,1.15,.30,.19,.34,.10,edgeMat); // glenoid rim
+// Posterior fossa regions
+const colors={sup:0xe66b68,infra:0xd9575b,teres:0x6da9dc,sub:0xb77ac4,serr:0xe5a24f,pec:0x79bd78,trap:0x9cacc0,del:0xe6c36a};
+function patch(points,z,color,opacity=.88){
+ const s=new THREE.Shape(); s.moveTo(points[0][0],points[0][1]); for(let i=1;i<points.length;i++)s.lineTo(points[i][0],points[i][1]);s.closePath();
+ const g=new THREE.ShapeGeometry(s); const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color,transparent:true,opacity,side:THREE.DoubleSide,depthWrite:false}));m.position.z=z;scene.add(m);return m;
+}
+const patches={};
+patches.sup=patch([[-1.95,1.95],[.65,1.94],[.55,1.28],[-1.75,1.18]],.205,colors.sup);
+patches.infra=patch([[-1.95,1.03],[.45,1.12],[.65,-.62],[-1.95,-.28]],.205,colors.infra);
+patches.teres=patch([[-1.78,-.38],[.58,-.72],[.40,-1.42],[-1.28,-1.62]],.21,colors.teres);
+patches.sub=patch([[-2.0,1.85],[1.1,1.55],[1.12,-1.48],[.0,-2.35],[-1.85,-.42]],-.205,colors.sub);
+patches.serr=patch([[-2.30,1.75],[-2.12,1.72],[-2.03,-.42],[-.05,-2.50],[-.20,-2.30],[-2.2,-.25]],-.22,colors.serr,.72);
+patches.pec=patch([[.75,1.75],[1.22,1.88],[1.45,1.55],[1.05,1.35]],-.22,colors.pec);
+patches.trap=patch([[-2.18,.94],[-1.85,.78],[.98,1.15],[1.30,1.52],[.9,1.62]],.235,colors.trap,.8);
+patches.del=patch([[.95,1.58],[1.9,1.8],[2.03,1.53],[1.45,1.12]],.24,colors.del,.8);
+// Labels/metadata
+const data=[
+ ['Supraspinatus','sup','Supraspinous fossa of scapula (posterior surface).'],
+ ['Infraspinatus','infra','Infraspinous fossa of scapula (posterior surface).'],
+ ['Teres minor','teres','Upper part of the lateral border of scapula.'],
+ ['Subscapularis','sub','Subscapular fossa on the costal (anterior) surface.'],
+ ['Serratus anterior','serr','Costal surface along the medial border, including the area near the inferior angle.'],
+ ['Pectoralis minor','pec','Medial and superior surface of the coracoid process.'],
+ ['Trapezius','trap','Spine and acromion (insertion onto scapula).'],
+ ['Deltoid','del','Spine and acromion (origin from scapula).']
+];
+const list=document.getElementById('muscles');
+data.forEach(([name,id,desc])=>{const row=document.createElement('label');row.className='muscle';row.innerHTML=`<input type="checkbox" checked data-id="${id}"><span class="swatch" style="background:#${colors[id].toString(16).padStart(6,'0')}"></span><span>${name}</span>`;list.appendChild(row);row.querySelector('input').addEventListener('change',e=>{patches[id].visible=e.target.checked;});row.addEventListener('click',e=>{if(e.target.tagName!=='INPUT'){document.getElementById('info').textContent=name+': '+desc;}});});
+list.querySelectorAll('input').forEach((el,i)=>el.addEventListener('change',()=>{const d=data.find(x=>x[1]===el.dataset.id);document.getElementById('info').textContent=d[0]+': '+d[2];}));
+function setView(front){camera.position.set(0,0,front?-11:11);camera.up.set(0,1,0);controls.target.set(0,0,0);controls.update();document.getElementById('post').classList.toggle('active',!front);document.getElementById('ant').classList.toggle('active',front);}
+document.getElementById('post').onclick=()=>setView(false);
+document.getElementById('ant').onclick=()=>setView(true);
+document.getElementById('reset').onclick=()=>{setView(false);camera.position.set(0,0,11);controls.reset();};
+function resize(){const w=host.clientWidth,h=host.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();}
+new ResizeObserver(resize).observe(host);resize();
+function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera);}animate();
+</script>
+</body></html>
